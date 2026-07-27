@@ -1,0 +1,17 @@
+name: CI # Actions sekmesinde görünecek isim
+
+on: # TETİK: bu workflow ne zaman koşsun?
+  push:
+    branches: [main] #   main'e her push geldiğinde
+  pull_request: #   ve her pull request açıldığında/güncellendiğinde
+
+jobs:
+  backend-build: # job'ın adı (sen koydun, anlamlı olsun yeter)
+    runs-on: ubuntu-latest # GitHub'dan istenen makine: güncel Ubuntu Linux
+
+    steps:
+      - uses: actions/checkout@v4 # HAZIR eylem: repoyu makineye klonlar
+      - uses: actions/setup-dotnet@v4 # HAZIR eylem: .NET SDK kurar
+        with: #   eylemin parametreleri:
+          dotnet-version: "10.0.x" #   10.0'ın son sürümü
+      - run: dotnet build backend --configuration Release # DÜZ komut: derle
