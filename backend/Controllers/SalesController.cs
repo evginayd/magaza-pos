@@ -26,10 +26,9 @@ public class SalesController : ControllerBase
         {
             return BadRequest(new { error = "Birim fiyat sıfırdan büyük olmalıdır." });
         }
-        if (dto.PaymentMethod != "Nakit" && dto.PaymentMethod != "Kart")
-        {
-            return BadRequest(new { error = "Geçersiz ödeme yöntemi." });
-        }
+        var pm = dto.PaymentMethod?.Trim().ToLowerInvariant();
+        if (pm != "cash" && pm != "card")
+            return BadRequest(new { error = "Ödeme tipi 'cash' veya 'card' olmalı." });
 
         var sale = new SaleEntry
         {

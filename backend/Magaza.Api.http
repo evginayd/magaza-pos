@@ -1,4 +1,4 @@
-@Magaza.Api_HostAddress = http://localhost:5201
+@host = http://localhost:5201
 
 ### Etiket oluştur
 POST {{host}}/api/labels
@@ -14,7 +14,7 @@ Content-Type: application/json
     "label": "Pantolon",
     "unitPrice": 700,
     "quantity": 1,
-    "paymentMethod": "nakit"
+    "paymentMethod": "cash"
 }
 
 ### Satışları Listele
@@ -23,8 +23,8 @@ GET {{host}}/api/sales
 ### Satış Sil
 DELETE {{host}}/api/sales/1
 
-### Bozuk istek - 400 görmelisin
+### Bozuk istek - kendi 400 mesajını görmelisin
 POST {{host}}/api/sales
 Content-Type: application/json
 
-{"label": "Tişört", "unitPrice": -5, "quantity". 1, "paymentMethod": "nakit"}
+{"label": "Tişört", "unitPrice": -5, "quantity": 1, "paymentMethod": "cash"}
