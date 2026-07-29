@@ -9,6 +9,7 @@ builder.Services.AddDbContext<AppDb>(o =>
 
 // .NET 9/10 Yerleşik OpenAPI Servisi
 builder.Services.AddOpenApi();
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -22,5 +23,5 @@ app.UseHttpsRedirection();
 
 // --- API ENDPOINT'LERİ ---
 app.MapGet("/", () => "Mağaza POS API Çalışıyor!");
-
+app.MapControllers();
 app.Run();
