@@ -28,3 +28,30 @@ POST {{host}}/api/sales
 Content-Type: application/json
 
 {"label": "Tişört", "unitPrice": -5, "quantity": 1, "paymentMethod": "cash"}
+
+### Kartlı satış
+POST {{host}}/api/sales
+Content-Type: application/json
+
+{ "label": "Gömlek", "unitPrice": 450, "quantity": 2, "paymentMethod": "card" }
+
+### Gider: yemek
+POST {{host}}/api/expenses
+Content-Type: application/json
+
+{ "amount": 100, "category": "Yemek" }
+
+### Gider: su (not'lu)
+POST {{host}}/api/expenses
+Content-Type: application/json
+
+{ "amount": 170, "category": "Su", "note": "damacana x2" }
+
+### Günlük rapor (tarihi bugünle değiştir)
+GET {{host}}/api/reports/daily?date=2026-07-30
+
+### Aylık rapor
+GET {{host}}/api/reports/monthly?month=2026-07
+
+### Bozuk tarih - 400 görmelisin
+GET {{host}}/api/reports/daily?date=30-07-2026
