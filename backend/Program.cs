@@ -11,6 +11,14 @@ builder.Services.AddDbContext<AppDb>(o =>
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 
+builder.Services.AddCors(options =>
+    options.AddPolicy("frontend", policy =>
+        policy.WithOrigins("http://localhost:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+        ));
+
+
 var app = builder.Build();
 
 // Development ortamında OpenAPI endpoint'ini aktif et
@@ -20,7 +28,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors("frontend");
 // --- API ENDPOINT'LERİ ---
 app.MapGet("/", () => "Mağaza POS API Çalışıyor!");
 app.MapControllers();
