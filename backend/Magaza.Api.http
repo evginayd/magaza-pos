@@ -48,8 +48,7 @@ Content-Type: application/json
 { "amount": 170, "category": "Su", "note": "damacana x2" }
 
 ### Günlük rapor (tarihi bugünle değiştir)
-GET {{host}}/api/reports/daily?date=2026-07-30
-
+GET {{host}}/api/reports/daily?date=2026-08-06
 ### Aylık rapor
 GET {{host}}/api/reports/monthly?month=2026-07
 
