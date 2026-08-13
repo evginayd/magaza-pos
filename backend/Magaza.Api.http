@@ -54,3 +54,35 @@ GET {{host}}/api/reports/monthly?month=2026-07
 
 ### Bozuk tarih - 400 görmelisin
 GET {{host}}/api/reports/daily?date=30-07-2026
+
+### Fiş: karma ödeme (700 + 900 = 1600 = 1000 + 600 ✔)
+POST {{host}}/api/sales
+Content-Type: application/json
+
+{
+  "cashAmount": 1000,
+  "cardAmount": 600,
+  "items": [
+    { "label": "Pantolon - Kot", "unitPrice": 700, "quantity": 1 },
+    { "label": "Gömlek", "unitPrice": 450, "quantity": 2 }
+  ]
+}
+
+### Bütünlük ihlali - kendi 400 mesajını görmelisin (999+600 ≠ 1600)
+POST {{host}}/api/sales
+Content-Type: application/json
+
+{
+  "cashAmount": 999,
+  "cardAmount": 600,
+  "items": [
+    { "label": "Pantolon - Kot", "unitPrice": 700, "quantity": 1 },
+    { "label": "Gömlek", "unitPrice": 450, "quantity": 2 }
+  ]
+}
+
+### Günün fişleri (kalemleriyle)
+GET {{host}}/api/sales?date=2026-08-13
+
+### Günlük rapor - cashTotal=1000, cardTotal=600 görmelisin
+GET {{host}}/api/reports/daily?date=2026-08-13

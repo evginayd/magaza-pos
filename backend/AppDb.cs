@@ -9,7 +9,8 @@ public class AppDb : DbContext
     {
     }
 
-    public DbSet<SaleEntry> SaleEntries { get; set; }
+    public DbSet<Sale> Sales { get; set; }
+    public DbSet<SaleItem> SaleItems { get; set; }
     public DbSet<Expense> Expenses { get; set; }
     public DbSet<QuickLabel> QuickLabels { get; set; }
 }
