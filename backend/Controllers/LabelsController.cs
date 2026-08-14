@@ -71,6 +71,31 @@ public class LabelsController : ControllerBase
         return Created($"/api/labels/{label.Id}", label);
     }
 
+    // PUT api/labels/5 — sadece ismi değiştirir (kademe/üst etiket değişmez)
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> UpdateLabel(int id, LabelUpdateDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return BadRequest(new { error = "Etiket adı boş olamaz." });
+
+        var label = await _db.QuickLabels.FindAsync(id);
+        if (label is null || !label.IsActive)
+            return NotFound(new { error = "Bu etiket bulunamadı." });
+
+        var name = dto.Name.Trim();
+
+        // Aynı grupta aynı isim olmasın — ama KENDİSİ hariç (l.Id != id)
+        var exists = await _db.QuickLabels
+            .AnyAsync(l => l.IsActive && l.Id != id && l.ParentId == label.ParentId
+                        && l.Name.ToLower() == name.ToLower());
+        if (exists)
+            return Conflict(new { error = $"'{name}' isimli etiket bu grupta zaten var." });
+
+        label.Name = name;
+        await _db.SaveChangesAsync();
+        return Ok(label);
+    }
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteLabel(int id)
     {
@@ -81,6 +106,17 @@ public class LabelsController : ControllerBase
         }
 
         label.IsActive = false;
+
+        // Kök etiket siliniyorsa çeşitleri de gitsin (sahipsiz çeşit kalmasın)
+        if (label.ParentId is null)
+        {
+            var children = await _db.QuickLabels
+                .Where(l => l.ParentId == id && l.IsActive)
+                .ToListAsync();
+            foreach (var c in children)
+                c.IsActive = false;
+        }
+
         await _db.SaveChangesAsync();
         return NoContent();
     }

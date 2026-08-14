@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { API } from "@/lib/api";
 
 type Label = {
@@ -310,6 +311,16 @@ export default function SatisPage() {
             );
           })}
         </div>
+
+        {/* ürün yönetimi — sadece kök listede */}
+        {!parent && (
+          <Link
+            href="/urunler"
+            className="mt-3 block rounded-2xl border-2 border-dashed border-emerald-300 bg-white/60 p-4 text-center text-lg font-bold text-emerald-700"
+          >
+            + Ürün Ekle / Düzenle
+          </Link>
+        )}
 
         {lastSaved && cart.length === 0 && (
           <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-center font-semibold text-emerald-700">
