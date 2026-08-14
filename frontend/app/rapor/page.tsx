@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { API } from "@/lib/api";
 
 type ExpenseRow = {
@@ -131,6 +132,23 @@ export default function RaporPage() {
             className="w-8 cursor-pointer text-transparent outline-none"
           />
         </div>
+
+        {/* aylık rapor sayfasına giriş */}
+        <Link
+          href="/analiz"
+          className="mb-4 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm active:bg-emerald-50"
+        >
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-xl">
+            📈
+          </span>
+          <span className="flex-1">
+            <span className="block font-bold">Aylık Rapor</span>
+            <span className="block text-sm text-slate-400">
+              Ürün bazlı satış ve grafikler
+            </span>
+          </span>
+          <span className="text-2xl text-emerald-600">›</span>
+        </Link>
 
         {error && (
           <p className="rounded-2xl bg-red-50 p-4 text-red-700">

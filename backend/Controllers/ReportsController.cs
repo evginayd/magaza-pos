@@ -14,6 +14,41 @@ public class ReportsController : ControllerBase
         _db = db;
     }
 
+    public record LabelStat(string Label, int Quantity, decimal Revenue);
+
+    // Aylık ve yıllık raporun ORTAK kısmı: toplamlar, ürün kırılımı, gider.
+    // Sadece "dönem" değişiyor; tekrar yazmıyoruz.
+    private async Task<(decimal Cash, decimal Card, decimal Expenses, List<LabelStat> ByLabel)>
+        GetPeriodTotals(DateTime startUtc, DateTime endUtc, DateOnly firstDay, DateOnly nextDay)
+    {
+        var sales = _db.Sales.Where(s => s.SoldAt >= startUtc && s.SoldAt < endUtc);
+
+        var cash = await sales.SumAsync(s => (decimal?)s.CashAmount) ?? 0;
+        var card = await sales.SumAsync(s => (decimal?)s.CardAmount) ?? 0;
+
+        var rows = await _db.SaleItems
+            .Where(i => i.Sale.SoldAt >= startUtc && i.Sale.SoldAt < endUtc)
+            .GroupBy(i => i.Label)
+            .Select(g => new
+            {
+                Label = g.Key,
+                Quantity = g.Sum(i => i.Quantity),
+                Revenue = g.Sum(i => i.UnitPrice * i.Quantity)
+            })
+            .OrderByDescending(x => x.Revenue)
+            .ToListAsync();
+
+        var byLabel = rows
+            .Select(x => new LabelStat(x.Label, x.Quantity, x.Revenue))
+            .ToList();
+
+        var expenses = await _db.Expenses
+            .Where(e => e.ExpenseDate >= firstDay && e.ExpenseDate < nextDay)
+            .SumAsync(e => (decimal?)e.Amount) ?? 0;
+
+        return (cash, card, expenses, byLabel);
+    }
+
     // GET api/reports/daily?date=2026-08-13
     [HttpGet("daily")]
     public async Task<IActionResult> GetDailyReport(string date)
@@ -67,28 +102,24 @@ public class ReportsController : ControllerBase
         var startUtc = DateTime.SpecifyKind(first.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
         var endUtc = DateTime.SpecifyKind(next.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
 
-        var monthSales = _db.Sales.Where(s => s.SoldAt >= startUtc && s.SoldAt < endUtc);
-
-        var cash = await monthSales.SumAsync(s => (decimal?)s.CashAmount) ?? 0;
-        var card = await monthSales.SumAsync(s => (decimal?)s.CardAmount) ?? 0;
+        var (cash, card, expensesTotal, byLabel) =
+            await GetPeriodTotals(startUtc, endUtc, first, next);
         var salesTotal = cash + card;
 
-        // Babanın listesi artık kalemlerden geliyor
-        var byLabel = await _db.SaleItems
-            .Where(i => i.Sale.SoldAt >= startUtc && i.Sale.SoldAt < endUtc)
-            .GroupBy(i => i.Label)
+        // Gün gün kırılım (grafik için). İş günü = UTC günü olduğu için
+        // SoldAt.Date doğrudan iş gününü verir.
+        var byDay = await _db.Sales
+            .Where(s => s.SoldAt >= startUtc && s.SoldAt < endUtc)
+            .GroupBy(s => s.SoldAt.Date)
             .Select(g => new
             {
-                Label = g.Key,
-                Quantity = g.Sum(i => i.Quantity),
-                Revenue = g.Sum(i => i.UnitPrice * i.Quantity)
+                Date = g.Key,
+                Cash = g.Sum(s => s.CashAmount),
+                Card = g.Sum(s => s.CardAmount),
+                Total = g.Sum(s => s.CashAmount + s.CardAmount)
             })
-            .OrderByDescending(x => x.Revenue)
+            .OrderBy(x => x.Date)
             .ToListAsync();
-
-        var expensesTotal = await _db.Expenses
-            .Where(e => e.ExpenseDate >= first && e.ExpenseDate < next)
-            .SumAsync(e => (decimal?)e.Amount) ?? 0;
 
         return Ok(new
         {
@@ -98,6 +129,51 @@ public class ReportsController : ControllerBase
             salesTotal,
             itemCount = byLabel.Sum(x => x.Quantity),
             byLabel,
+            byDay,
+            expensesTotal,
+            net = salesTotal - expensesTotal
+        });
+    }
+
+    // GET api/reports/yearly?year=2026
+    [HttpGet("yearly")]
+    public async Task<IActionResult> GetYearlyReport(int year)
+    {
+        if (year < 2000 || year > 2999)
+            return BadRequest(new { error = "Yıl 2000-2999 arasında olmalı." });
+
+        var first = new DateOnly(year, 1, 1);
+        var next = first.AddYears(1);
+        var startUtc = DateTime.SpecifyKind(first.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+        var endUtc = DateTime.SpecifyKind(next.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
+
+        var (cash, card, expensesTotal, byLabel) =
+            await GetPeriodTotals(startUtc, endUtc, first, next);
+        var salesTotal = cash + card;
+
+        // Ay ay kırılım (yıllık grafik için)
+        var byMonth = await _db.Sales
+            .Where(s => s.SoldAt >= startUtc && s.SoldAt < endUtc)
+            .GroupBy(s => s.SoldAt.Month)
+            .Select(g => new
+            {
+                Month = g.Key,
+                Cash = g.Sum(s => s.CashAmount),
+                Card = g.Sum(s => s.CardAmount),
+                Total = g.Sum(s => s.CashAmount + s.CardAmount)
+            })
+            .OrderBy(x => x.Month)
+            .ToListAsync();
+
+        return Ok(new
+        {
+            year,
+            cashTotal = cash,
+            cardTotal = card,
+            salesTotal,
+            itemCount = byLabel.Sum(x => x.Quantity),
+            byLabel,
+            byMonth,
             expensesTotal,
             net = salesTotal - expensesTotal
         });
