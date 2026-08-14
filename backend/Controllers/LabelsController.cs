@@ -31,21 +31,37 @@ public class LabelsController : ControllerBase
     public async Task<IActionResult> CreateLabel(LabelCreateDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Name))
-        {
-            return BadRequest(new { error = "Label name cannot be empty." });
-        }
+            return BadRequest(new { error = "Etiket adı boş olamaz." });
 
         var name = dto.Name.Trim();
-        var exists = await _db.QuickLabels.AnyAsync(l => l.IsActive && l.Name.ToLower() == name.ToLower());
-        if (exists)
+        var parentId = dto.ParentId;
+
+        // Üst etiket verildiyse: var mı, aktif mi, kendisi kök mü?
+        if (parentId is int pid)
         {
-            return Conflict(new { error = $"'{name}' isimli etiket zaten var." });
+            var parent = await _db.QuickLabels.FindAsync(pid);
+            if (parent is null || !parent.IsActive)
+                return BadRequest(new { error = "Üst etiket bulunamadı." });
+            if (parent.ParentId != null)
+                return BadRequest(new { error = "Etiketler en fazla iki kademeli olabilir." });
         }
 
-        var maxSort = await _db.QuickLabels.MaxAsync(l => (int?)l.SortOrder) ?? -1;
+        // Tekrar kontrolü artık AYNI ÜST ETİKET altında:
+        // "Keten" hem Pantolon'un hem Gömlek'in altında olabilmeli.
+        var exists = await _db.QuickLabels
+            .AnyAsync(l => l.IsActive && l.ParentId == parentId && l.Name.ToLower() == name.ToLower());
+        if (exists)
+            return Conflict(new { error = $"'{name}' isimli etiket bu grupta zaten var." });
+
+        // Sıra numarası da kendi grubu içinde
+        var maxSort = await _db.QuickLabels
+            .Where(l => l.ParentId == parentId)
+            .MaxAsync(l => (int?)l.SortOrder) ?? -1;
+
         var label = new QuickLabel
         {
-            Name = dto.Name.Trim(),
+            Name = name,
+            ParentId = parentId,
             SortOrder = maxSort + 1,
             IsActive = true
         };

@@ -86,3 +86,24 @@ GET {{host}}/api/sales?date=2026-08-13
 
 ### Günlük rapor - cashTotal=1000, cardTotal=600 görmelisin
 GET {{host}}/api/reports/daily?date=2026-08-13
+
+### Mevcut etiketleri gör (id'leri buradan al)
+GET {{host}}/api/labels
+
+### Kök etiket
+POST {{host}}/api/labels
+Content-Type: application/json
+
+{ "name": "Gömlek" }
+
+### Alt etiket — parentId'yi yukarıdaki GET'ten aldığın Pantolon id'si yap
+POST {{host}}/api/labels
+Content-Type: application/json
+
+{ "name": "Kot", "parentId": 2 }
+
+### İki kademe kuralı testi — 400 görmelisin (Kot'un id'siyle dene)
+POST {{host}}/api/labels
+Content-Type: application/json
+
+{ "name": "Dar Paça", "parentId": 2 }
