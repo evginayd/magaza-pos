@@ -10,6 +10,7 @@ type ExpenseRow = {
   amount: number;
   note?: string | null;
 };
+
 type DailyReport = {
   date: string;
   cashTotal: number;
@@ -21,31 +22,51 @@ type DailyReport = {
   expectedCash: number;
 };
 
-// 700 → "₺700"  |  1234.5 → "₺1.234,50"
+// Fiş ve kalemleri (API'den geldiği şekil)
+type SaleItemRow = {
+  id: number;
+  label: string;
+  unitPrice: number;
+  quantity: number;
+};
+
+type SaleRow = {
+  id: number;
+  soldAt: string;
+  cashAmount: number;
+  cardAmount: number;
+  items: SaleItemRow[];
+};
+
 const tl = (n: number) => "₺" + n.toLocaleString("tr-TR");
 
 export default function RaporPage() {
   // ═══ BÖLGE 1: HAFIZA ═══
-  // İş günü = UTC günü kararımız sayesinde bugünün tarihi = UTC tarihi.
-  // toISOString hep UTC verir → gece 01:00'de bile doğru iş gününü gösterir.
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [report, setReport] = useState<DailyReport | null>(null);
+  const [sales, setSales] = useState<SaleRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0); // silme sonrası tazeleme
 
-  // ═══ BÖLGE 2: EYLEMLER ═══
-  // Dikkat: dizide [date] var → "date HER DEĞİŞTİĞİNDE yeniden çalış"
   // ═══ BÖLGE 2: EYLEMLER ═══
   useEffect(() => {
-    let ignore = false; // eski turun cevabı geç gelirse çöpe atmak için bayrak
+    let ignore = false;
 
-    fetch(`${API}/api/reports/daily?date=${date}`)
-      .then((r) => {
+    // Promise.all: iki istek AYNI ANDA gider, ikisi de bitince devam eder
+    Promise.all([
+      fetch(`${API}/api/reports/daily?date=${date}`).then((r) => {
         if (!r.ok) throw new Error(`API hatası: ${r.status}`);
         return r.json();
-      })
-      .then((data) => {
+      }),
+      fetch(`${API}/api/sales?date=${date}`).then((r) => {
+        if (!r.ok) throw new Error(`API hatası: ${r.status}`);
+        return r.json();
+      }),
+    ])
+      .then(([rep, sls]) => {
         if (!ignore) {
-          setReport(data);
+          setReport(rep);
+          setSales(sls);
           setError(null);
         }
       })
@@ -54,19 +75,28 @@ export default function RaporPage() {
       });
 
     return () => {
-      ignore = true; // temizlik: date değişti → bu turun cevabı artık geçersiz
+      ignore = true;
     };
-  }, [date]);
+  }, [date, refreshKey]);
 
-  // "Yükleniyor" bilgisi state DEĞİL, türetilmiş değer:
+  async function deleteSale(id: number) {
+    if (!confirm("Bu satışın tamamı silinecek. Emin misin?")) return;
+    try {
+      const r = await fetch(`${API}/api/sales/${id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error(`Silinemedi: ${r.status}`);
+      setRefreshKey((k) => k + 1); // hem tablo hem toplamlar tazelensin
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Bağlantı hatası");
+    }
+  }
+
   const loading = !error && report?.date !== date;
 
   // ═══ BÖLGE 3: GÖRÜNÜM ═══
   return (
-    <main className="min-h-screen bg-gray-100 p-4 text-gray-900">
+    <main className="mx-auto min-h-screen max-w-md bg-gray-100 p-4 text-gray-900">
       <h1 className="mb-4 text-2xl font-bold">Gün Sonu</h1>
 
-      {/* tarih seçici */}
       <input
         type="date"
         value={date}
@@ -93,7 +123,7 @@ export default function RaporPage() {
             <p className="text-right text-gray-500">{report.itemCount} parça</p>
           </div>
 
-          {/* Defter sayfasının alt kısmı: giderler */}
+          {/* Giderler */}
           <div className="mb-4 rounded-2xl bg-white p-5 shadow">
             <h2 className="mb-2 text-lg font-bold">Giderler</h2>
             {report.expenses.length === 0 && (
@@ -116,10 +146,57 @@ export default function RaporPage() {
             </div>
           </div>
 
-          {/* Defterde OLMAYAN hediye: kasa mutabakat sayısı */}
-          <div className="rounded-2xl bg-amber-100 p-5 text-center shadow">
+          {/* Kasa mutabakatı */}
+          <div className="mb-4 rounded-2xl bg-amber-100 p-5 text-center shadow">
             <p className="text-lg">Kasada olması gereken nakit</p>
             <p className="text-4xl font-bold">{tl(report.expectedCash)}</p>
+          </div>
+
+          {/* ─── YENİ: satılan ürünler tablosu ─── */}
+          <div className="mb-4 overflow-hidden rounded-2xl bg-white shadow">
+            <h2 className="border-b p-4 text-lg font-bold">Satılan Ürünler</h2>
+
+            {sales.length === 0 && (
+              <p className="p-4 text-gray-500">Bu gün satış yok.</p>
+            )}
+
+            {/* DIŞ map: fişler — renk tonu burada belirlenir */}
+            {sales.map((s, i) => (
+              <div
+                key={s.id}
+                className={i % 2 === 0 ? "bg-white" : "bg-sky-50"}
+              >
+                {/* İÇ map: o fişin kalemleri */}
+                {s.items.map((it, j) => (
+                  <div
+                    key={it.id}
+                    className="flex items-center justify-between border-b px-4 py-2"
+                  >
+                    <span className="truncate">
+                      {it.label}
+                      {it.quantity > 1 && (
+                        <span className="text-gray-500"> × {it.quantity}</span>
+                      )}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-3">
+                      <b>{tl(it.unitPrice * it.quantity)}</b>
+                      {/* silme butonu sadece fişin İLK satırında */}
+                      {j === 0 ? (
+                        <button
+                          onClick={() => deleteSale(s.id)}
+                          className="w-6 text-red-600"
+                          title="Bu satışın tamamını sil"
+                        >
+                          ✕
+                        </button>
+                      ) : (
+                        <span className="w-6" />
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         </>
       )}
