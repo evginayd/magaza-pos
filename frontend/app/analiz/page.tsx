@@ -6,6 +6,16 @@ import { apiFetch } from "@/lib/api";
 
 type ByLabel = { label: string; quantity: number; revenue: number };
 
+// Grup = ürün adının ilk kısmı ("Kurtuluş - Lakost Orta" → "Kurtuluş")
+// Cost = aynı isimli gider kategorisi (okula ödenen para gibi)
+type ByGroup = {
+  group: string;
+  quantity: number;
+  revenue: number;
+  cost: number;
+  net: number;
+};
+
 // Grafikteki tek bir çubuk (ay modunda bir gün, yıl modunda bir ay)
 type Series = { label: string; cash: number; card: number; total: number };
 
@@ -17,6 +27,7 @@ type Report = {
   salesTotal: number;
   itemCount: number;
   byLabel: ByLabel[];
+  byGroup: ByGroup[];
   series: Series[];
   expensesTotal: number;
   net: number;
@@ -89,6 +100,7 @@ export default function AnalizPage() {
           salesTotal: d.salesTotal,
           itemCount: d.itemCount,
           byLabel: d.byLabel,
+          byGroup: d.byGroup,
           series,
           expensesTotal: d.expensesTotal,
           net: d.net,
@@ -273,6 +285,64 @@ export default function AnalizPage() {
                 </div>
               )}
             </div>
+
+            {/* grup bazlı kâr — okul sezonu için */}
+            {report.byGroup.length > 0 && (
+              <div className="mb-4">
+                <p className="mb-2 px-1 font-bold text-slate-700">
+                  Grup Bazlı Kâr
+                </p>
+
+                <div className="space-y-3">
+                  {report.byGroup.map((g) => (
+                    <div
+                      key={g.group}
+                      className="rounded-3xl bg-white p-5 shadow-sm"
+                    >
+                      <div className="mb-2 flex items-baseline justify-between">
+                        <span className="truncate text-lg font-bold">
+                          {g.group}
+                        </span>
+                        <span className="shrink-0 text-sm text-slate-400">
+                          {g.quantity} adet
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between py-1 text-slate-600">
+                        <span>Ciro</span>
+                        <b className="text-emerald-600">{tl(g.revenue)}</b>
+                      </div>
+
+                      {g.cost > 0 ? (
+                        <>
+                          <div className="flex justify-between border-b border-dashed py-1 pb-3 text-slate-600">
+                            <span>Ödenen ({g.group})</span>
+                            <b className="text-red-600">−{tl(g.cost)}</b>
+                          </div>
+                          <div className="flex justify-between pt-3 text-lg font-bold">
+                            <span>Net</span>
+                            <span
+                              className={
+                                g.net >= 0 ? "text-emerald-600" : "text-red-600"
+                              }
+                            >
+                              {g.net < 0 ? "−" : ""}
+                              {tl(Math.abs(g.net))}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="pt-1 text-sm text-slate-400">
+                          Bu gruba ait gider yok. Okul ödemesini{" "}
+                          <b>&quot;{g.group}&quot;</b> kategorisiyle girersen
+                          kâr burada hesaplanır.
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ürün bazlı tablo */}
             <div className="mb-4 overflow-hidden rounded-3xl bg-white shadow-sm">

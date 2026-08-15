@@ -11,6 +11,8 @@ const CATEGORIES = [
   { name: "Diğer", icon: "•••" },
 ];
 
+type Label = { id: number; name: string; parentId: number | null };
+
 type ExpenseRow = {
   id: number;
   category: string;
@@ -30,6 +32,23 @@ export default function GiderPage() {
 
   const [todayExpenses, setTodayExpenses] = useState<ExpenseRow[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [groups, setGroups] = useState<string[]>([]); // ürün grupları (okul vb.)
+
+  // Kök ürünler gider kategorisi olarak da kullanılabilsin:
+  // "Kurtuluş" kategorili gider, raporda "Kurtuluş" grubunun maliyeti olur.
+  useEffect(() => {
+    let ignore = false;
+    apiFetch(`/api/labels`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: Label[]) => {
+        if (!ignore)
+          setGroups(d.filter((l) => l.parentId === null).map((l) => l.name));
+      })
+      .catch(() => {});
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   useEffect(() => {
     let ignore = false;
@@ -139,6 +158,33 @@ export default function GiderPage() {
             </button>
           ))}
         </div>
+
+        {/* ürün grubu kategorileri: bu giderler raporda o grubun maliyeti olur */}
+        {groups.length > 0 && (
+          <div className="mb-4">
+            <p className="mb-2 px-1 text-sm font-semibold text-slate-500">
+              Ürün grubuna ait ödeme (raporda kârdan düşülür)
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {groups.map((g) => (
+                <button
+                  key={g}
+                  onClick={() => {
+                    setCategory(g);
+                    setFormError(null);
+                  }}
+                  className={`rounded-xl px-4 py-2 font-semibold shadow-sm ${
+                    category === g
+                      ? "bg-emerald-600 text-white"
+                      : "bg-white text-slate-700"
+                  }`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* not */}
         <input

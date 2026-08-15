@@ -16,9 +16,22 @@ public class ReportsController : ControllerBase
 
     public record LabelStat(string Label, int Quantity, decimal Revenue);
 
+    public record GroupStat(
+        string Group, int Quantity, decimal Revenue, decimal Cost, decimal Net);
+
+    public record CategoryStat(string Category, decimal Amount);
+
+    // "Kurtuluş - Lakost Orta" → "Kurtuluş" ; "Gömlek" → "Gömlek"
+    private static string GroupOf(string label)
+    {
+        var i = label.IndexOf(" - ", StringComparison.Ordinal);
+        return i > 0 ? label[..i] : label;
+    }
+
     // Aylık ve yıllık raporun ORTAK kısmı: toplamlar, ürün kırılımı, gider.
     // Sadece "dönem" değişiyor; tekrar yazmıyoruz.
-    private async Task<(decimal Cash, decimal Card, decimal Expenses, List<LabelStat> ByLabel)>
+    private async Task<(decimal Cash, decimal Card, decimal Expenses,
+        List<LabelStat> ByLabel, List<GroupStat> ByGroup, List<CategoryStat> ByCategory)>
         GetPeriodTotals(DateTime startUtc, DateTime endUtc, DateOnly firstDay, DateOnly nextDay)
     {
         var sales = _db.Sales.Where(s => s.SoldAt >= startUtc && s.SoldAt < endUtc);
@@ -46,7 +59,34 @@ public class ReportsController : ControllerBase
             .Where(e => e.ExpenseDate >= firstDay && e.ExpenseDate < nextDay)
             .SumAsync(e => (decimal?)e.Amount) ?? 0;
 
-        return (cash, card, expenses, byLabel);
+        // Gider kategorileri (grup maliyetini eşleştirmek için de kullanılır)
+        var catRows = await _db.Expenses
+            .Where(e => e.ExpenseDate >= firstDay && e.ExpenseDate < nextDay)
+            .GroupBy(e => e.Category)
+            .Select(g => new { Category = g.Key, Amount = g.Sum(x => x.Amount) })
+            .OrderByDescending(x => x.Amount)
+            .ToListAsync();
+
+        var byCategory = catRows
+            .Select(x => new CategoryStat(x.Category, x.Amount))
+            .ToList();
+
+        // Grup bazlı kâr: ciro ürün adının ilk kısmından, maliyet ise
+        // AYNI İSİMLİ gider kategorisinden gelir (örn. "Kurtuluş" grubu ↔
+        // "Kurtuluş" kategorili okul ödemesi).
+        var byGroup = byLabel
+            .GroupBy(l => GroupOf(l.Label))
+            .Select(g =>
+            {
+                var revenue = g.Sum(x => x.Revenue);
+                var cost = byCategory.FirstOrDefault(c =>
+                    string.Equals(c.Category, g.Key, StringComparison.OrdinalIgnoreCase))?.Amount ?? 0;
+                return new GroupStat(g.Key, g.Sum(x => x.Quantity), revenue, cost, revenue - cost);
+            })
+            .OrderByDescending(x => x.Revenue)
+            .ToList();
+
+        return (cash, card, expenses, byLabel, byGroup, byCategory);
     }
 
     // GET api/reports/daily?date=2026-08-13
@@ -102,7 +142,7 @@ public class ReportsController : ControllerBase
         var startUtc = DateTime.SpecifyKind(first.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
         var endUtc = DateTime.SpecifyKind(next.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
 
-        var (cash, card, expensesTotal, byLabel) =
+        var (cash, card, expensesTotal, byLabel, byGroup, byCategory) =
             await GetPeriodTotals(startUtc, endUtc, first, next);
         var salesTotal = cash + card;
 
@@ -129,6 +169,8 @@ public class ReportsController : ControllerBase
             salesTotal,
             itemCount = byLabel.Sum(x => x.Quantity),
             byLabel,
+            byGroup,
+            byCategory,
             byDay,
             expensesTotal,
             net = salesTotal - expensesTotal
@@ -147,7 +189,7 @@ public class ReportsController : ControllerBase
         var startUtc = DateTime.SpecifyKind(first.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
         var endUtc = DateTime.SpecifyKind(next.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
 
-        var (cash, card, expensesTotal, byLabel) =
+        var (cash, card, expensesTotal, byLabel, byGroup, byCategory) =
             await GetPeriodTotals(startUtc, endUtc, first, next);
         var salesTotal = cash + card;
 
@@ -173,6 +215,8 @@ public class ReportsController : ControllerBase
             salesTotal,
             itemCount = byLabel.Sum(x => x.Quantity),
             byLabel,
+            byGroup,
+            byCategory,
             byMonth,
             expensesTotal,
             net = salesTotal - expensesTotal
