@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch, clearKey } from "@/lib/api";
+import { COLORS, ColorKey, themeOf } from "@/lib/colors";
 
 type Label = {
   id: number;
@@ -11,6 +12,8 @@ type Label = {
   isActive: boolean;
   parentId: number | null;
   price: number | null; // sabit fiyat; null = satışta sorulur
+  isPinned: boolean;
+  color: string | null;
 };
 
 const tl = (n: number) => "₺" + n.toLocaleString("tr-TR");
@@ -34,6 +37,7 @@ export default function UrunlerPage() {
   const [addingRoot, setAddingRoot] = useState(false); // "Yeni Ürün" formu açık mı
   const [editName, setEditName] = useState(""); // düzenleme ekranındaki isim
   const [editPrice, setEditPrice] = useState(""); // düzenleme ekranındaki fiyat
+  const [editColor, setEditColor] = useState<string | null>(null);
   const [newChild, setNewChild] = useState(""); // yeni çeşit adı
   const [newChildPrice, setNewChildPrice] = useState(""); // yeni çeşit fiyatı
   const [editingChild, setEditingChild] = useState<number | null>(null); // satır içi düzenleme
@@ -119,6 +123,18 @@ export default function UrunlerPage() {
     await send(`/api/labels/${open.id}`, "PUT", {
       name: editName.trim(),
       price: parsePrice(editPrice),
+      color: editColor,
+      isPinned: open.isPinned,
+    });
+  }
+
+  // Hem listeden hem düzenleme ekranından kullanılır
+  async function togglePin(l: Label) {
+    await send(`/api/labels/${l.id}`, "PUT", {
+      name: l.name,
+      price: l.price,
+      color: l.color,
+      isPinned: !l.isPinned,
     });
   }
 
@@ -201,6 +217,37 @@ export default function UrunlerPage() {
               className="mb-3 w-full rounded-2xl bg-slate-100 p-4 text-lg font-bold outline-none focus:ring-2 focus:ring-emerald-500"
             />
 
+            <label className="mb-2 block text-sm font-semibold text-slate-500">
+              Renk
+            </label>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <button
+                onClick={() => setEditColor(null)}
+                className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${
+                  editColor === null
+                    ? "bg-slate-800 text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                <span className="h-4 w-4 rounded-full bg-slate-300" />
+                Yok
+              </button>
+              {(Object.keys(COLORS) as ColorKey[]).map((k) => (
+                <button
+                  key={k}
+                  onClick={() => setEditColor(k)}
+                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${
+                    editColor === k
+                      ? "bg-slate-800 text-white"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  <span className={`h-4 w-4 rounded-full ${COLORS[k].dot}`} />
+                  {COLORS[k].label}
+                </button>
+              ))}
+            </div>
+
             <button
               onClick={saveRoot}
               disabled={busy || !editName.trim()}
@@ -209,6 +256,21 @@ export default function UrunlerPage() {
               Kaydet
             </button>
           </div>
+
+          {/* pinleme */}
+          <button
+            onClick={() => togglePin(open)}
+            disabled={busy}
+            className={`mb-4 w-full rounded-2xl p-4 font-bold shadow-sm ${
+              open.isPinned
+                ? "bg-amber-100 text-amber-800"
+                : "bg-white text-slate-600"
+            }`}
+          >
+            {open.isPinned
+              ? "📌 Listenin başında — kaldır"
+              : "📌 Listenin başına sabitle"}
+          </button>
 
           {/* çeşitler */}
           <div className="mb-4 rounded-3xl bg-white p-5 shadow-sm">
@@ -354,29 +416,49 @@ export default function UrunlerPage() {
           {roots.map((l) => {
             const count = labels.filter((x) => x.parentId === l.id).length;
             return (
-              <button
+              <div
                 key={l.id}
-                onClick={() => {
-                  setOpenId(l.id);
-                  setEditName(l.name);
-                  setEditPrice(l.price != null ? String(l.price) : "");
-                  setNewChild("");
-                  setNewChildPrice("");
-                  setEditingChild(null);
-                  setError(null);
-                }}
-                className="flex w-full items-center gap-4 rounded-2xl bg-white p-4 text-left shadow-sm active:bg-emerald-50"
+                className="flex items-stretch overflow-hidden rounded-2xl bg-white shadow-sm"
               >
-                <span className="min-w-0 flex-1">
+                <span className={`w-2 shrink-0 ${themeOf(l.color).stripe}`} />
+
+                <button
+                  onClick={() => {
+                    setOpenId(l.id);
+                    setEditName(l.name);
+                    setEditPrice(l.price != null ? String(l.price) : "");
+                    setEditColor(l.color);
+                    setNewChild("");
+                    setNewChildPrice("");
+                    setEditingChild(null);
+                    setError(null);
+                  }}
+                  className="min-w-0 flex-1 py-4 pl-4 text-left active:bg-slate-50"
+                >
                   <span className="block truncate text-lg font-bold">
                     {l.name}
                   </span>
                   <span className="block text-sm text-slate-400">
                     {count > 0 ? `${count} çeşit` : "Çeşit yok"}
                   </span>
-                </span>
-                <span className="text-2xl text-emerald-600">›</span>
-              </button>
+                </button>
+
+                {/* pin: listeden tek dokunuşla aç/kapa */}
+                <button
+                  onClick={() => togglePin(l)}
+                  disabled={busy}
+                  className={`my-3 mr-3 flex shrink-0 flex-col items-center justify-center rounded-xl px-3 text-xs font-bold ${
+                    l.isPinned
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-slate-100 text-slate-400"
+                  }`}
+                >
+                  <span className={`text-xl ${l.isPinned ? "" : "grayscale"}`}>
+                    📌
+                  </span>
+                  {l.isPinned ? "Sabit" : "Sabitle"}
+                </button>
+              </div>
             );
           })}
         </div>

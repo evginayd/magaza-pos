@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { themeOf } from "@/lib/colors";
 
 type Label = {
   id: number;
@@ -11,6 +12,8 @@ type Label = {
   isActive: boolean;
   parentId: number | null;
   price: number | null; // sabit fiyat; null = satışta sorulur
+  isPinned: boolean;
+  color: string | null;
 };
 
 // Fiyat paneli neyi satıyor? (ad + varsa sabit fiyat)
@@ -204,19 +207,26 @@ export default function SatisPage() {
   if (selected) {
     return (
       <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-100">
-        <div className="bg-gradient-to-br from-emerald-600 to-green-500 px-5 pb-8 pt-6">
-          <div className="mx-auto flex max-w-md items-center gap-3">
-            <button
-              onClick={() => setSelected(null)}
-              className="rounded-full bg-white/20 px-3 py-1 text-2xl text-white"
-            >
-              ←
-            </button>
-            <h2 className="text-2xl font-bold text-white">{selected.name}</h2>
+        <header className="rounded-b-3xl bg-gradient-to-br from-emerald-600 to-green-500 px-5 pb-10 pt-6">
+          <div className="mx-auto flex max-w-md items-center justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                onClick={() => setSelected(null)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20 text-2xl text-white"
+              >
+                ←
+              </button>
+              <h2 className="truncate text-2xl font-bold text-white">
+                {selected.name}
+              </h2>
+            </div>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/20 text-xl">
+              🛍️
+            </span>
           </div>
-        </div>
+        </header>
 
-        <div className="mx-auto -mt-4 max-w-md px-5">
+        <div className="mx-auto -mt-6 max-w-md px-5">
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             {selected.price != null ? (
               // Sabit fiyatlı ürün: fiyat sorulmaz, sadece gösterilir
@@ -315,28 +325,36 @@ export default function SatisPage() {
         <div className="space-y-3">
           {visibleLabels.map((l) => {
             const hasKids = labels.some((x) => x.parentId === l.id);
+            // Alt listedeyken kökün rengi devam etsin
+            const theme = themeOf(parent ? parent.color : l.color);
             return (
               <button
                 key={l.id}
                 onClick={() => onLabelClick(l)}
-                className="flex w-full items-center gap-4 rounded-2xl bg-white p-4 text-left shadow-sm active:bg-emerald-50"
+                className="flex w-full items-stretch overflow-hidden rounded-2xl bg-white text-left shadow-sm active:bg-slate-50"
               >
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-3xl">
-                  {iconFor(parent ? parent.name : l.name)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-lg font-bold">
-                    {l.name}
+                <span className={`w-2 shrink-0 ${theme.stripe}`} />
+                <span className="flex flex-1 items-center gap-4 p-4">
+                  <span
+                    className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-3xl ${theme.circle}`}
+                  >
+                    {iconFor(parent ? parent.name : l.name)}
                   </span>
-                  <span className="block text-sm text-slate-400">
-                    {hasKids
-                      ? "Çeşit seç"
-                      : l.price != null
-                        ? tl(l.price)
-                        : "Satış kaydet"}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-lg font-bold">
+                      {l.isPinned && !parent && "📌 "}
+                      {l.name}
+                    </span>
+                    <span className="block text-sm text-slate-400">
+                      {hasKids
+                        ? "Çeşit seç"
+                        : l.price != null
+                          ? tl(l.price)
+                          : "Satış kaydet"}
+                    </span>
                   </span>
+                  <span className="text-2xl text-slate-300">›</span>
                 </span>
-                <span className="text-2xl text-emerald-600">›</span>
               </button>
             );
           })}

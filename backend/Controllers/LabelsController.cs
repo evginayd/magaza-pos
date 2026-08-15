@@ -16,12 +16,18 @@ public class LabelsController : ControllerBase
         _db = db;
     }
 
+    // Geçerli renk anahtarları (frontend'deki renk haritasıyla aynı olmalı)
+    private static readonly string[] AllowedColors =
+        ["bordo", "turuncu", "yesil", "mavi", "mor"];
+
     [HttpGet]
     public async Task<IActionResult> GetLabels()
     {
+        // Sabitlenmişler önce, sonra kendi sıralarında
         var labels = await _db.QuickLabels
             .Where(l => l.IsActive)
-            .OrderBy(l => l.SortOrder)
+            .OrderByDescending(l => l.IsPinned)
+            .ThenBy(l => l.SortOrder)
             .ToListAsync();
 
         return Ok(labels);
@@ -57,6 +63,9 @@ public class LabelsController : ControllerBase
         if (dto.Price is decimal p && p <= 0)
             return BadRequest(new { error = "Fiyat 0'dan büyük olmalı." });
 
+        if (dto.Color is not null && !AllowedColors.Contains(dto.Color))
+            return BadRequest(new { error = "Geçersiz renk." });
+
         var maxSort = await _db.QuickLabels
             .Where(l => l.ParentId == parentId)
             .MaxAsync(l => (int?)l.SortOrder) ?? -1;
@@ -67,7 +76,8 @@ public class LabelsController : ControllerBase
             ParentId = parentId,
             SortOrder = maxSort + 1,
             IsActive = true,
-            Price = dto.Price
+            Price = dto.Price,
+            Color = dto.Color
         };
 
         _db.QuickLabels.Add(label);
@@ -98,8 +108,14 @@ public class LabelsController : ControllerBase
         if (dto.Price is decimal p && p <= 0)
             return BadRequest(new { error = "Fiyat 0'dan büyük olmalı." });
 
+        if (dto.Color is not null && !AllowedColors.Contains(dto.Color))
+            return BadRequest(new { error = "Geçersiz renk." });
+
         label.Name = name;
         label.Price = dto.Price;   // null gönderilirse sabit fiyat kaldırılır
+        label.Color = dto.Color;
+        if (dto.IsPinned is bool pinned) label.IsPinned = pinned;
+
         await _db.SaveChangesAsync();
         return Ok(label);
     }

@@ -10,4 +10,10 @@ public class QuickLabel
 
     // Sabit fiyatlı ürünler için (okul kıyafeti gibi). null = fiyat satışta sorulur.
     public decimal? Price { get; set; }
+
+    // Listede en üste sabitlenir (okul sezonu gibi yoğun dönemler için)
+    public bool IsPinned { get; set; }
+
+    // Görsel ayrım: "bordo", "turuncu", "yesil", "mavi", "mor". null = varsayılan
+    public string? Color { get; set; }
 }
