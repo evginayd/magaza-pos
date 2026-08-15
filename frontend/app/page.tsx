@@ -10,7 +10,11 @@ type Label = {
   sortOrder: number;
   isActive: boolean;
   parentId: number | null;
+  price: number | null; // sabit fiyat; null = satışta sorulur
 };
+
+// Fiyat paneli neyi satıyor? (ad + varsa sabit fiyat)
+type Picked = { name: string; price: number | null };
 
 type CartLine = {
   key: string;
@@ -45,7 +49,7 @@ export default function SatisPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [parent, setParent] = useState<Label | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Picked | null>(null);
   const [price, setPrice] = useState("");
   const [qty, setQty] = useState(1);
 
@@ -107,7 +111,10 @@ export default function SatisPage() {
       setParent(l);
       return;
     }
-    setSelected(parent ? `${parent.name} - ${l.name}` : l.name);
+    setSelected({
+      name: parent ? `${parent.name} - ${l.name}` : l.name,
+      price: l.price,
+    });
     setPrice("");
     setQty(1);
     setFormError(null);
@@ -115,14 +122,21 @@ export default function SatisPage() {
 
   function addToCart() {
     if (!selected) return;
-    const unitPrice = Number(price.replace(",", "."));
+
+    // Sabit fiyatlı ürünse fiyat sorulmadı; kutudan değil üründen alınır.
+    const unitPrice = selected.price ?? Number(price.replace(",", "."));
     if (!unitPrice || unitPrice <= 0) {
       setFormError("Geçerli bir fiyat gir.");
       return;
     }
     setCart((c) => [
       ...c,
-      { key: crypto.randomUUID(), label: selected, unitPrice, quantity: qty },
+      {
+        key: crypto.randomUUID(),
+        label: selected.name,
+        unitPrice,
+        quantity: qty,
+      },
     ]);
     setSelected(null);
     setParent(null);
@@ -198,23 +212,35 @@ export default function SatisPage() {
             >
               ←
             </button>
-            <h2 className="text-2xl font-bold text-white">{selected}</h2>
+            <h2 className="text-2xl font-bold text-white">{selected.name}</h2>
           </div>
         </div>
 
         <div className="mx-auto -mt-4 max-w-md px-5">
           <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <label className="mb-2 block text-sm font-semibold text-slate-500">
-              Fiyat (₺)
-            </label>
-            <input
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              inputMode="decimal"
-              placeholder="0,00"
-              autoFocus
-              className="mb-6 w-full rounded-2xl bg-slate-100 p-5 text-center text-4xl font-bold outline-none focus:ring-2 focus:ring-emerald-500"
-            />
+            {selected.price != null ? (
+              // Sabit fiyatlı ürün: fiyat sorulmaz, sadece gösterilir
+              <div className="mb-6 rounded-2xl bg-emerald-50 p-5 text-center">
+                <p className="text-sm font-semibold text-emerald-700">Fiyat</p>
+                <p className="text-4xl font-bold text-emerald-700">
+                  {tl(selected.price)}
+                </p>
+              </div>
+            ) : (
+              <>
+                <label className="mb-2 block text-sm font-semibold text-slate-500">
+                  Fiyat (₺)
+                </label>
+                <input
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  autoFocus
+                  className="mb-6 w-full rounded-2xl bg-slate-100 p-5 text-center text-4xl font-bold outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </>
+            )}
 
             <label className="mb-2 block text-sm font-semibold text-slate-500">
               Adet
@@ -303,7 +329,11 @@ export default function SatisPage() {
                     {l.name}
                   </span>
                   <span className="block text-sm text-slate-400">
-                    {hasKids ? "Çeşit seç" : "Satış kaydet"}
+                    {hasKids
+                      ? "Çeşit seç"
+                      : l.price != null
+                        ? tl(l.price)
+                        : "Satış kaydet"}
                   </span>
                 </span>
                 <span className="text-2xl text-emerald-600">›</span>

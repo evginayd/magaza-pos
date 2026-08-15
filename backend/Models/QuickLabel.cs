@@ -8,4 +8,6 @@ public class QuickLabel
     public bool IsActive { get; set; } = true;
     public int? ParentId { get; set; }   // null = kök etiket; dolu = hangi kökün çocuğu
 
+    // Sabit fiyatlı ürünler için (okul kıyafeti gibi). null = fiyat satışta sorulur.
+    public decimal? Price { get; set; }
 }

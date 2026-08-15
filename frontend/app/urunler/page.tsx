@@ -10,6 +10,17 @@ type Label = {
   sortOrder: number;
   isActive: boolean;
   parentId: number | null;
+  price: number | null; // sabit fiyat; null = satışta sorulur
+};
+
+const tl = (n: number) => "₺" + n.toLocaleString("tr-TR");
+
+// "1.200,50" / "1200,5" → 1200.5 ; boşsa null
+const parsePrice = (s: string): number | null => {
+  const v = s.trim().replace(",", ".");
+  if (!v) return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
 };
 
 export default function UrunlerPage() {
@@ -22,7 +33,12 @@ export default function UrunlerPage() {
   const [newRoot, setNewRoot] = useState(""); // yeni ürün adı
   const [addingRoot, setAddingRoot] = useState(false); // "Yeni Ürün" formu açık mı
   const [editName, setEditName] = useState(""); // düzenleme ekranındaki isim
+  const [editPrice, setEditPrice] = useState(""); // düzenleme ekranındaki fiyat
   const [newChild, setNewChild] = useState(""); // yeni çeşit adı
+  const [newChildPrice, setNewChildPrice] = useState(""); // yeni çeşit fiyatı
+  const [editingChild, setEditingChild] = useState<number | null>(null); // satır içi düzenleme
+  const [childName, setChildName] = useState("");
+  const [childPrice, setChildPrice] = useState("");
   const [busy, setBusy] = useState(false);
 
   // ═══ TÜRETİLMİŞ ═══
@@ -90,17 +106,32 @@ export default function UrunlerPage() {
       await send(`/api/labels`, "POST", {
         name: newChild.trim(),
         parentId: open.id,
+        price: parsePrice(newChildPrice),
       })
     ) {
       setNewChild("");
+      setNewChildPrice("");
     }
   }
 
-  async function rename() {
-    if (!open || !editName.trim() || editName.trim() === open.name) return;
+  async function saveRoot() {
+    if (!open || !editName.trim()) return;
     await send(`/api/labels/${open.id}`, "PUT", {
       name: editName.trim(),
+      price: parsePrice(editPrice),
     });
+  }
+
+  async function saveChild(id: number) {
+    if (!childName.trim()) return;
+    if (
+      await send(`/api/labels/${id}`, "PUT", {
+        name: childName.trim(),
+        price: parsePrice(childPrice),
+      })
+    ) {
+      setEditingChild(null);
+    }
   }
 
   async function removeChild(id: number, name: string) {
@@ -148,7 +179,7 @@ export default function UrunlerPage() {
             </p>
           )}
 
-          {/* isim değiştir */}
+          {/* isim ve fiyat */}
           <div className="mb-4 rounded-3xl bg-white p-5 shadow-sm">
             <label className="mb-2 block text-sm font-semibold text-slate-500">
               Ürün adı
@@ -158,12 +189,24 @@ export default function UrunlerPage() {
               onChange={(e) => setEditName(e.target.value)}
               className="mb-3 w-full rounded-2xl bg-slate-100 p-4 text-lg font-bold outline-none focus:ring-2 focus:ring-emerald-500"
             />
+
+            <label className="mb-2 block text-sm font-semibold text-slate-500">
+              Sabit fiyat (boş = satışta sorulur)
+            </label>
+            <input
+              value={editPrice}
+              onChange={(e) => setEditPrice(e.target.value)}
+              inputMode="decimal"
+              placeholder="örn. 400"
+              className="mb-3 w-full rounded-2xl bg-slate-100 p-4 text-lg font-bold outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+
             <button
-              onClick={rename}
-              disabled={busy || !editName.trim() || editName.trim() === open.name}
+              onClick={saveRoot}
+              disabled={busy || !editName.trim()}
               className="w-full rounded-2xl bg-emerald-600 p-3 font-bold text-white disabled:opacity-40"
             >
-              İsmi Kaydet
+              Kaydet
             </button>
           </div>
 
@@ -180,37 +223,92 @@ export default function UrunlerPage() {
               </p>
             )}
 
-            {children.map((c) => (
-              <div
-                key={c.id}
-                className="flex items-center justify-between border-b border-slate-100 py-2.5"
-              >
-                <span className="truncate">{c.name}</span>
-                <button
-                  onClick={() => removeChild(c.id, c.name)}
-                  disabled={busy}
-                  className="shrink-0 rounded-lg px-3 py-1 text-sm font-semibold text-red-600"
+            {children.map((c) =>
+              editingChild === c.id ? (
+                // satır içi düzenleme
+                <div key={c.id} className="border-b border-slate-100 py-3">
+                  <input
+                    value={childName}
+                    onChange={(e) => setChildName(e.target.value)}
+                    className="mb-2 w-full rounded-xl bg-slate-100 p-3 font-semibold outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <input
+                    value={childPrice}
+                    onChange={(e) => setChildPrice(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="Sabit fiyat (boş = sorulur)"
+                    className="mb-2 w-full rounded-xl bg-slate-100 p-3 outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setEditingChild(null)}
+                      className="rounded-xl bg-slate-100 p-2 font-semibold text-slate-600"
+                    >
+                      Vazgeç
+                    </button>
+                    <button
+                      onClick={() => saveChild(c.id)}
+                      disabled={busy || !childName.trim()}
+                      className="rounded-xl bg-emerald-600 p-2 font-bold text-white disabled:opacity-40"
+                    >
+                      Kaydet
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between gap-2 border-b border-slate-100 py-2.5"
                 >
-                  Sil
-                </button>
-              </div>
-            ))}
+                  <button
+                    onClick={() => {
+                      setEditingChild(c.id);
+                      setChildName(c.name);
+                      setChildPrice(c.price != null ? String(c.price) : "");
+                      setError(null);
+                    }}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <span className="block truncate">{c.name}</span>
+                    <span className="block text-sm text-slate-400">
+                      {c.price != null ? tl(c.price) : "fiyat satışta sorulur"}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => removeChild(c.id, c.name)}
+                    disabled={busy}
+                    className="shrink-0 rounded-lg px-3 py-1 text-sm font-semibold text-red-600"
+                  >
+                    Sil
+                  </button>
+                </div>
+              )
+            )}
 
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 space-y-2">
               <input
                 value={newChild}
                 onChange={(e) => setNewChild(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addChild()}
-                placeholder="Yeni çeşit (örn. Yakalı)"
-                className="min-w-0 flex-1 rounded-2xl bg-slate-100 p-3 outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="Yeni çeşit (örn. Lakost Orta)"
+                className="w-full rounded-2xl bg-slate-100 p-3 outline-none focus:ring-2 focus:ring-emerald-500"
               />
-              <button
-                onClick={addChild}
-                disabled={busy || !newChild.trim()}
-                className="shrink-0 rounded-2xl bg-emerald-600 px-5 font-bold text-white disabled:opacity-40"
-              >
-                Ekle
-              </button>
+              <div className="flex gap-2">
+                <input
+                  value={newChildPrice}
+                  onChange={(e) => setNewChildPrice(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addChild()}
+                  inputMode="decimal"
+                  placeholder="Sabit fiyat (boş bırakılabilir)"
+                  className="min-w-0 flex-1 rounded-2xl bg-slate-100 p-3 outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <button
+                  onClick={addChild}
+                  disabled={busy || !newChild.trim()}
+                  className="shrink-0 rounded-2xl bg-emerald-600 px-5 font-bold text-white disabled:opacity-40"
+                >
+                  Ekle
+                </button>
+              </div>
             </div>
           </div>
 
@@ -261,7 +359,10 @@ export default function UrunlerPage() {
                 onClick={() => {
                   setOpenId(l.id);
                   setEditName(l.name);
+                  setEditPrice(l.price != null ? String(l.price) : "");
                   setNewChild("");
+                  setNewChildPrice("");
+                  setEditingChild(null);
                   setError(null);
                 }}
                 className="flex w-full items-center gap-4 rounded-2xl bg-white p-4 text-left shadow-sm active:bg-emerald-50"

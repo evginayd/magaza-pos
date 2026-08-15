@@ -1,3 +1,4 @@
 namespace Magaza.Api.Dtos;
 
-public record LabelUpdateDto(string Name);
+// Price null gelirse fiyat kaldırılır (fiyat satışta sorulur haline döner)
+public record LabelUpdateDto(string Name, decimal? Price);

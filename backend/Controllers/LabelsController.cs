@@ -54,6 +54,9 @@ public class LabelsController : ControllerBase
             return Conflict(new { error = $"'{name}' isimli etiket bu grupta zaten var." });
 
         // Sıra numarası da kendi grubu içinde
+        if (dto.Price is decimal p && p <= 0)
+            return BadRequest(new { error = "Fiyat 0'dan büyük olmalı." });
+
         var maxSort = await _db.QuickLabels
             .Where(l => l.ParentId == parentId)
             .MaxAsync(l => (int?)l.SortOrder) ?? -1;
@@ -63,7 +66,8 @@ public class LabelsController : ControllerBase
             Name = name,
             ParentId = parentId,
             SortOrder = maxSort + 1,
-            IsActive = true
+            IsActive = true,
+            Price = dto.Price
         };
 
         _db.QuickLabels.Add(label);
@@ -91,7 +95,11 @@ public class LabelsController : ControllerBase
         if (exists)
             return Conflict(new { error = $"'{name}' isimli etiket bu grupta zaten var." });
 
+        if (dto.Price is decimal p && p <= 0)
+            return BadRequest(new { error = "Fiyat 0'dan büyük olmalı." });
+
         label.Name = name;
+        label.Price = dto.Price;   // null gönderilirse sabit fiyat kaldırılır
         await _db.SaveChangesAsync();
         return Ok(label);
     }
