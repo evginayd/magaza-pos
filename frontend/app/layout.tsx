@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import BottomNav from "./BottomNav";
+import AuthGate from "./AuthGate";
 
 export const metadata: Metadata = {
   title: "Mağaza",
@@ -15,8 +16,10 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body className="bg-slate-100 pb-20 text-slate-900">
-        {children}
-        <BottomNav />
+        <AuthGate>
+          {children}
+          <BottomNav />
+        </AuthGate>
       </body>
     </html>
   );

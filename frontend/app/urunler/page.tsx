@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { API } from "@/lib/api";
+import { apiFetch, clearKey } from "@/lib/api";
 
 type Label = {
   id: number;
@@ -33,7 +33,7 @@ export default function UrunlerPage() {
   // ═══ BÖLGE 2: EYLEMLER ═══
   useEffect(() => {
     let ignore = false;
-    fetch(`${API}/api/labels`)
+    apiFetch(`/api/labels`)
       .then((r) => {
         if (!r.ok) throw new Error(`API hatası: ${r.status}`);
         return r.json();
@@ -53,11 +53,11 @@ export default function UrunlerPage() {
   }, [refreshKey]);
 
   // Tüm yazma işlemleri aynı kalıptan geçsin: hata yakalama tek yerde.
-  async function send(url: string, method: string, body?: unknown) {
+  async function send(path: string, method: string, body?: unknown) {
     setBusy(true);
     setError(null);
     try {
-      const r = await fetch(url, {
+      const r = await apiFetch(path, {
         method,
         headers: body ? { "Content-Type": "application/json" } : undefined,
         body: body ? JSON.stringify(body) : undefined,
@@ -78,7 +78,7 @@ export default function UrunlerPage() {
 
   async function addRoot() {
     if (!newRoot.trim()) return;
-    if (await send(`${API}/api/labels`, "POST", { name: newRoot.trim() })) {
+    if (await send(`/api/labels`, "POST", { name: newRoot.trim() })) {
       setNewRoot("");
       setAddingRoot(false);
     }
@@ -87,7 +87,7 @@ export default function UrunlerPage() {
   async function addChild() {
     if (!newChild.trim() || !open) return;
     if (
-      await send(`${API}/api/labels`, "POST", {
+      await send(`/api/labels`, "POST", {
         name: newChild.trim(),
         parentId: open.id,
       })
@@ -98,14 +98,14 @@ export default function UrunlerPage() {
 
   async function rename() {
     if (!open || !editName.trim() || editName.trim() === open.name) return;
-    await send(`${API}/api/labels/${open.id}`, "PUT", {
+    await send(`/api/labels/${open.id}`, "PUT", {
       name: editName.trim(),
     });
   }
 
   async function removeChild(id: number, name: string) {
     if (!confirm(`"${name}" çeşidi listeden kalkacak. Emin misin?`)) return;
-    await send(`${API}/api/labels/${id}`, "DELETE");
+    await send(`/api/labels/${id}`, "DELETE");
   }
 
   async function removeRoot() {
@@ -116,7 +116,7 @@ export default function UrunlerPage() {
       )
     )
       return;
-    if (await send(`${API}/api/labels/${open.id}`, "DELETE")) {
+    if (await send(`/api/labels/${open.id}`, "DELETE")) {
       setOpenId(null);
     }
   }
@@ -324,6 +324,19 @@ export default function UrunlerPage() {
           Ürün silmek geçmiş satışları etkilemez — satışlarda ürünün o günkü
           adı saklanır.
         </p>
+
+        {/* Çıkış: normalde kimse dokunmaz, telefon kaybolursa işe yarar */}
+        <button
+          onClick={() => {
+            if (!confirm("Çıkış yapılacak, tekrar şifre sorulacak. Emin misin?"))
+              return;
+            clearKey();
+            window.location.href = "/";
+          }}
+          className="mt-6 w-full rounded-2xl bg-white p-4 font-semibold text-slate-400 shadow-sm"
+        >
+          Çıkış yap
+        </button>
       </div>
     </main>
   );

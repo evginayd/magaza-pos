@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 const CATEGORIES = [
   { name: "Yemek", icon: "🍽️" },
@@ -35,7 +35,7 @@ export default function GiderPage() {
     let ignore = false;
     const today = new Date().toISOString().slice(0, 10);
 
-    fetch(`${API}/api/reports/daily?date=${today}`)
+    apiFetch(`/api/reports/daily?date=${today}`)
       .then((r) => {
         if (!r.ok) throw new Error(`API hatası: ${r.status}`);
         return r.json();
@@ -66,7 +66,7 @@ export default function GiderPage() {
     setSaving(true);
     setFormError(null);
     try {
-      const r = await fetch(`${API}/api/expenses`, {
+      const r = await apiFetch(`/api/expenses`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

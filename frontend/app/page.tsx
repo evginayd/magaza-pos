@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { API } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 type Label = {
   id: number;
@@ -73,7 +73,7 @@ export default function SatisPage() {
 
   // ═══ BÖLGE 2: EYLEMLER ═══
   useEffect(() => {
-    fetch(`${API}/api/labels`)
+    apiFetch(`/api/labels`)
       .then((r) => {
         if (!r.ok) throw new Error(`API hatası: ${r.status}`);
         return r.json();
@@ -86,7 +86,7 @@ export default function SatisPage() {
   useEffect(() => {
     let ignore = false;
     const today = new Date().toISOString().slice(0, 10);
-    fetch(`${API}/api/reports/daily?date=${today}`)
+    apiFetch(`/api/reports/daily?date=${today}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!ignore && d)
@@ -138,7 +138,7 @@ export default function SatisPage() {
     setSaving(true);
     setFormError(null);
     try {
-      const r = await fetch(`${API}/api/sales`, {
+      const r = await apiFetch(`/api/sales`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { API } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 type ExpenseRow = {
   id: number;
@@ -70,11 +70,11 @@ export default function RaporPage() {
     let ignore = false;
 
     Promise.all([
-      fetch(`${API}/api/reports/daily?date=${date}`).then((r) => {
+      apiFetch(`/api/reports/daily?date=${date}`).then((r) => {
         if (!r.ok) throw new Error(`API hatası: ${r.status}`);
         return r.json();
       }),
-      fetch(`${API}/api/sales?date=${date}`).then((r) => {
+      apiFetch(`/api/sales?date=${date}`).then((r) => {
         if (!r.ok) throw new Error(`API hatası: ${r.status}`);
         return r.json();
       }),
@@ -98,7 +98,7 @@ export default function RaporPage() {
   async function deleteSale(id: number) {
     if (!confirm("Bu satışın tamamı silinecek. Emin misin?")) return;
     try {
-      const r = await fetch(`${API}/api/sales/${id}`, { method: "DELETE" });
+      const r = await apiFetch(`/api/sales/${id}`, { method: "DELETE" });
       if (!r.ok) throw new Error(`Silinemedi: ${r.status}`);
       setRefreshKey((k) => k + 1);
     } catch (e) {

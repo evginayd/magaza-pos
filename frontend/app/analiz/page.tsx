@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { API } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 type ByLabel = { label: string; quantity: number; revenue: number };
 
@@ -55,10 +55,10 @@ export default function AnalizPage() {
 
     const url =
       mode === "month"
-        ? `${API}/api/reports/monthly?month=${month}`
-        : `${API}/api/reports/yearly?year=${year}`;
+        ? `/api/reports/monthly?month=${month}`
+        : `/api/reports/yearly?year=${year}`;
 
-    fetch(url)
+    apiFetch(url)
       .then((r) => {
         if (!r.ok) throw new Error(`API hatası: ${r.status}`);
         return r.json();
