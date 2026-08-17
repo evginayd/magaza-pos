@@ -61,8 +61,14 @@ export default function SatisPage() {
   const [cashInput, setCashInput] = useState("");
 
   const [saving, setSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Son kaydedilen fiş: "geri al" için id'sini ve satırlarını saklıyoruz
+  const [lastSale, setLastSale] = useState<{
+    id: number;
+    lines: CartLine[];
+    total: number;
+  } | null>(null);
 
   const [summary, setSummary] = useState<{
     expectedCash: number;
@@ -132,22 +138,44 @@ export default function SatisPage() {
       setFormError("Geçerli bir fiyat gir.");
       return;
     }
-    setCart((c) => [
-      ...c,
-      {
-        key: crypto.randomUUID(),
-        label: selected.name,
-        unitPrice,
-        quantity: qty,
-      },
-    ]);
+    setCart((c) => {
+      // Aynı ürün + aynı fiyat zaten sepetteyse yeni satır açma, adedini artır
+      const i = c.findIndex(
+        (l) => l.label === selected.name && l.unitPrice === unitPrice
+      );
+      if (i === -1) {
+        return [
+          ...c,
+          {
+            key: crypto.randomUUID(),
+            label: selected.name,
+            unitPrice,
+            quantity: qty,
+          },
+        ];
+      }
+      return c.map((l, idx) =>
+        idx === i ? { ...l, quantity: l.quantity + qty } : l
+      );
+    });
     setSelected(null);
     setParent(null);
-    setLastSaved(null);
+    setLastSale(null);
   }
 
   function removeLine(key: string) {
     setCart((c) => c.filter((l) => l.key !== key));
+  }
+
+  // Sepetteki satırın adedini değiştir; 0'a inerse satır silinir
+  function changeQty(key: string, delta: number) {
+    setCart((c) =>
+      c
+        .map((l) =>
+          l.key === key ? { ...l, quantity: l.quantity + delta } : l
+        )
+        .filter((l) => l.quantity > 0)
+    );
   }
 
   async function submitSale(cashAmount: number, cardAmount: number) {
@@ -172,10 +200,36 @@ export default function SatisPage() {
         const body = await r.json().catch(() => null);
         throw new Error(body?.error ?? `Sunucu hatası: ${r.status}`);
       }
-      setLastSaved(`${cart.length} kalem · ${tl(cartTotal)} kaydedildi ✓`);
+      // Oluşan fişin id'sini sakla ki "geri al" çalışabilsin
+      const created = await r.json().catch(() => null);
+      setLastSale(
+        created?.id
+          ? { id: created.id, lines: cart, total: cartTotal }
+          : null
+      );
       setCart([]);
       setMixedOpen(false);
       setCashInput("");
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Bağlantı hatası");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Son fişi sil ve sepeti geri getir — yanlış kaydı anında düzeltmek için
+  async function undoLastSale() {
+    if (!lastSale) return;
+    setSaving(true);
+    setFormError(null);
+    try {
+      const r = await apiFetch(`/api/sales/${lastSale.id}`, {
+        method: "DELETE",
+      });
+      if (!r.ok) throw new Error(`Geri alınamadı: ${r.status}`);
+      setCart(lastSale.lines);
+      setLastSale(null);
       setRefreshKey((k) => k + 1);
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Bağlantı hatası");
@@ -370,9 +424,18 @@ export default function SatisPage() {
           </Link>
         )}
 
-        {lastSaved && cart.length === 0 && (
-          <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-center font-semibold text-emerald-700">
-            {lastSaved}
+        {lastSale && cart.length === 0 && (
+          <div className="mt-4 flex items-center gap-3 rounded-2xl bg-emerald-50 p-4">
+            <span className="flex-1 font-semibold text-emerald-700">
+              {lastSale.lines.length} kalem · {tl(lastSale.total)} kaydedildi ✓
+            </span>
+            <button
+              onClick={undoLastSale}
+              disabled={saving}
+              className="shrink-0 rounded-xl bg-white px-4 py-2 text-sm font-bold text-slate-600 shadow-sm disabled:opacity-40"
+            >
+              ↩ Geri al
+            </button>
           </div>
         )}
 
@@ -416,27 +479,40 @@ export default function SatisPage() {
               </span>
             </div>
 
-            <div className="mb-3 max-h-28 overflow-y-auto">
+            <div className="mb-3 max-h-36 overflow-y-auto">
               {cart.map((l) => (
                 <div
                   key={l.key}
-                  className="flex items-center justify-between border-b border-slate-100 py-1.5 text-sm"
+                  className="flex items-center gap-2 border-b border-slate-100 py-2 text-sm"
                 >
-                  <span className="truncate">
-                    {l.label}
-                    {l.quantity > 1 && (
-                      <span className="text-slate-400"> × {l.quantity}</span>
-                    )}
-                  </span>
-                  <span className="flex shrink-0 items-center gap-3">
-                    <b>{tl(l.unitPrice * l.quantity)}</b>
+                  {/* adet kontrolü: − 2 + */}
+                  <span className="flex shrink-0 items-center gap-1">
                     <button
-                      onClick={() => removeLine(l.key)}
-                      className="text-red-500"
+                      onClick={() => changeQty(l.key, -1)}
+                      className="h-7 w-7 rounded-lg bg-slate-100 text-lg font-bold leading-none text-slate-600"
                     >
-                      ✕
+                      −
+                    </button>
+                    <span className="w-5 text-center font-bold">
+                      {l.quantity}
+                    </span>
+                    <button
+                      onClick={() => changeQty(l.key, 1)}
+                      className="h-7 w-7 rounded-lg bg-slate-100 text-lg font-bold leading-none text-slate-600"
+                    >
+                      +
                     </button>
                   </span>
+
+                  <span className="min-w-0 flex-1 truncate">{l.label}</span>
+
+                  <b className="shrink-0">{tl(l.unitPrice * l.quantity)}</b>
+                  <button
+                    onClick={() => removeLine(l.key)}
+                    className="shrink-0 text-red-500"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
             </div>
