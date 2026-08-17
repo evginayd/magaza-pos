@@ -13,9 +13,14 @@ builder.Services.AddDbContext<AppDb>(o =>
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 
+// İzinli origin'ler ayardan gelir; üretimde Cors__Origins ortam değişkeni
+// (virgülle birden fazla adres verilebilir)
+var corsOrigins = builder.Configuration["Cors:Origins"]?.Split(',')
+    ?? ["http://localhost:3000"];
+
 builder.Services.AddCors(options =>
     options.AddPolicy("frontend", policy =>
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins(corsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
         ));
@@ -23,13 +28,21 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Açılışta bekleyen migration'ları uygula — sunucuda elle komut çalıştıramayız
+using (var scope = app.Services.CreateScope())
+{
+    scope.ServiceProvider.GetRequiredService<AppDb>().Database.Migrate();
+}
+
 // Development ortamında OpenAPI endpoint'ini aktif et
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    // Üretimde konteyner HTTP dinler, TLS'i platformun proxy'si sonlandırır;
+    // orada yönlendirme yapmaya çalışmak sorun çıkarır.
+    app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
 app.UseCors("frontend");
 
 // ── Paylaşılan şifre koruması ────────────────────────────────────────────

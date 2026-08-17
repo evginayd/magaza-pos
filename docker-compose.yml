@@ -11,5 +11,20 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # Üretim imajını yerelde denemek için (geliştirmede dotnet watch kullanılır)
+  api:
+    build: ./backend
+    container_name: magaza-api
+    depends_on:
+      - db
+    environment:
+      # Konteynerler kendi ağlarında SERVİS ADIYLA konuşur: db:5432
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=magaza;Username=magaza;Password=magaza123"
+      Cors__Origins: "http://localhost:3000"
+      Auth__Password: "magaza-gelistirme"
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+
 volumes:
   pgdata:
