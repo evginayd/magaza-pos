@@ -485,20 +485,20 @@ export default function SatisPage() {
                   key={l.key}
                   className="flex items-center gap-2 border-b border-slate-100 py-2 text-sm"
                 >
-                  {/* adet kontrolü: − 2 + */}
-                  <span className="flex shrink-0 items-center gap-1">
+                  {/* adet kontrolü: − 2 + (dokunma hedefleri 40px) */}
+                  <span className="flex shrink-0 items-center">
                     <button
                       onClick={() => changeQty(l.key, -1)}
-                      className="h-7 w-7 rounded-lg bg-slate-100 text-lg font-bold leading-none text-slate-600"
+                      className="h-10 w-10 rounded-lg bg-slate-100 text-xl font-bold leading-none text-slate-600"
                     >
                       −
                     </button>
-                    <span className="w-5 text-center font-bold">
+                    <span className="w-7 text-center font-bold">
                       {l.quantity}
                     </span>
                     <button
                       onClick={() => changeQty(l.key, 1)}
-                      className="h-7 w-7 rounded-lg bg-slate-100 text-lg font-bold leading-none text-slate-600"
+                      className="h-10 w-10 rounded-lg bg-slate-100 text-xl font-bold leading-none text-slate-600"
                     >
                       +
                     </button>
@@ -509,7 +509,7 @@ export default function SatisPage() {
                   <b className="shrink-0">{tl(l.unitPrice * l.quantity)}</b>
                   <button
                     onClick={() => removeLine(l.key)}
-                    className="shrink-0 text-red-500"
+                    className="flex h-10 w-9 shrink-0 items-center justify-center text-red-500"
                   >
                     ✕
                   </button>
@@ -547,7 +547,7 @@ export default function SatisPage() {
                     setCashInput("");
                     setFormError(null);
                   }}
-                  className="mt-2 w-full p-1 text-sm font-semibold text-slate-400"
+                  className="mt-2 w-full rounded-xl py-3 text-sm font-semibold text-slate-500"
                 >
                   karma ödeme
                 </button>
